@@ -134,7 +134,7 @@ def parse_input(stream):
     parse_prep(stream)
 
     if not stream.readable():
-        raise WaitingForInputError("no target currency code  specified")
+        raise WaitingForInputError("no target currency code specified")
     to = parse_to(stream)
     return (balance, _from.upper(), to.upper())
 

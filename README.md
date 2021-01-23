@@ -4,4 +4,4 @@ download workflow file from the release, then double click it to install.
 
 # Usage
 
-type `cr` to get started!
+type `cr ` (don't forget the space) to get started!

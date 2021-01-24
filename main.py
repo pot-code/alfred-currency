@@ -1,9 +1,10 @@
 # encoding: utf-8
-import sys, datetime, json
+import sys, datetime, json, re
 
 from workflow.workflow import ICON_NETWORK
 from workflow import Workflow3, ICON_ERROR, ICON_CLOCK
 from workflow.web import post
+from decimal import Decimal
 
 """Request Model
 {
@@ -25,6 +26,8 @@ from workflow.web import post
     }
 }
 """
+
+NUMBER = re.compile(r"^\-?\d+(\.\d*)?$")
 
 
 def main(wf):
@@ -52,12 +55,14 @@ def main(wf):
             wf.cache_data(cache_key, (exchange_rate, last_fetch_time))
         else:
             exchange_rate, last_fetch_time = cached
-        dest_val = balance * exchange_rate
+
+        result = Decimal(balance) * Decimal(exchange_rate)
+        print_val = "{0:f}".format(result.normalize())
 
         wf.add_item(
-            title=dest_val,
+            title=print_val,
             subtitle="Fetch time: %s" % (last_fetch_time),
-            copytext=dest_val,
+            copytext=print_val,
         )
     except WaitingForInputError as we:
         wf.add_item(title="Waiting for more input", subtitle=str(we), icon=ICON_CLOCK)
@@ -87,7 +92,7 @@ def get_exchange_rate(payload):
         except KeyError:
             pass
 
-        exchange_rate = data["data"]["CurrentInterbankRate"]
+        exchange_rate = str(data["data"]["CurrentInterbankRate"])
         fetch_time = datetime.datetime.fromtimestamp(
             data["data"]["fetchTime"] // 1000
         ).strftime("%Y-%m-%d %H:%M:%S")
@@ -155,9 +160,11 @@ def parse_balance(stream):
         if c == " ":
             break
         v += c
-    if not v.isdigit():
+    if NUMBER.match(v) is None:
         raise ParseError("expect number, but got: ", v)
-    return int(v)
+    if Decimal(v).is_signed():
+        raise ParseError("balance should be positive number")
+    return v
 
 
 def parse_from(stream):

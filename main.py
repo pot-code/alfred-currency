@@ -1,7 +1,6 @@
 # encoding: utf-8
 import sys, datetime, json
 
-from io import StringIO
 from workflow.workflow import ICON_NETWORK
 from workflow import Workflow3, ICON_ERROR, ICON_CLOCK
 from workflow.web import post
@@ -37,14 +36,16 @@ def main(wf):
     try:
         balance, _from, to = parse_input(stream)
         cache_key = _from + "_" + to
-        exchange_rate, fetch_time = (0, "")
-        cached = wf.cached_data(cache_key, max_age=28800)
+        exchange_rate, last_fetch_time = (0, "")
+        cached = wf.cached_data(
+            cache_key, max_age=28800  # seconds, 8 hours to be expired
+        )
 
         if cached is None:
             payload = json.dumps(
                 {
                     "method": "spotRateHistory",
-                    "data": {"base": _from, "term": to, "period": "week"},
+                    "data": {"base": _from, "term": to, "period": "day"},
                 }
             )
             exchange_rate, last_fetch_time = get_exchange_rate(payload)
@@ -53,8 +54,11 @@ def main(wf):
             exchange_rate, last_fetch_time = cached
         dest_val = balance * exchange_rate
 
-        wf.add_item(title=dest_val, subtitle="%s to %s" % (_from, to))
-        wf.add_item(title=last_fetch_time, subtitle="Fetch time", icon=ICON_CLOCK)
+        wf.add_item(
+            title=dest_val,
+            subtitle="Fetch time: %s" % (last_fetch_time),
+            copytext=dest_val,
+        )
     except WaitingForInputError as we:
         wf.add_item(title="Waiting for more input", subtitle=str(we), icon=ICON_CLOCK)
     except NetworkError as ne:
@@ -72,6 +76,7 @@ def get_exchange_rate(payload):
         "https://adsynth-ofx-quotewidget-prod.herokuapp.com/api/1",
         data=payload,
         headers={"Content-Type": "application/json"},
+        timeout=30,  # seconds
     )
     if r.status_code < 400:
         data = r.json()

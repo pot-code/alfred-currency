@@ -1,16 +1,18 @@
 # Installation
 
-download workflow file from the release, then double click it to install.
+Download workflow file from the release, then double click it to install.
 
 # Usage
 
-type `cr ` (don't forget the space) to get started!
+Type `cr ` (don't forget the space) to get started!
 
-## returned data
+Press `cmd+C` to copy the result value 
+
+## Returned data
 
 The first line shows the exchange rate, while the second line shows the data time (the warranty of the data)
 
-## example
+## Example
 
 They are all valid:
 

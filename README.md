@@ -14,6 +14,8 @@ The first line shows the exchange rate, while the second line shows the data tim
 
 ## Example
 
+![demo](example/demo.gif)
+
 They are all valid:
 
 - `cr 1000 jpy to usd`

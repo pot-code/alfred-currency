@@ -1,10 +1,12 @@
 # encoding: utf-8
-import sys, datetime, json, re
+import sys
 
-from workflow.workflow import ICON_NETWORK
-from workflow import Workflow3, ICON_ERROR, ICON_CLOCK
-from workflow.web import post
+from workflow import Workflow3, ICON_ERROR, ICON_CLOCK, ICON_NETWORK, ICON_SYNC
+from workflow.background import run_in_background, is_running
 from decimal import Decimal
+
+from fetch import NetworkError
+from parse import ParseError, WaitingForInputError, parse_input
 
 """Request Model
 {
@@ -27,8 +29,6 @@ from decimal import Decimal
 }
 """
 
-NUMBER = re.compile(r"^\-?\d+(\.\d*)?$")
-
 
 def main(wf):
     if len(wf.args) == 0:
@@ -45,25 +45,27 @@ def main(wf):
         )
 
         if cached is None:
-            payload = json.dumps(
-                {
-                    "method": "spotRateHistory",
-                    "data": {"base": _from, "term": to, "period": "day"},
-                }
+            run_in_background(
+                "fetch",
+                ["/usr/bin/python", wf.workflowfile("fetch.py"), _from, to],
             )
-            exchange_rate, last_fetch_time = get_exchange_rate(payload)
-            wf.cache_data(cache_key, (exchange_rate, last_fetch_time))
+
+        if is_running("fetch"):
+            wf.rerun = 0.5
+            wf.add_item(title="Fetching...", icon=ICON_SYNC)
         else:
+            cached = wf.cached_data(
+                cache_key, max_age=0
+            )  # now can safely pull the data from cache
             exchange_rate, last_fetch_time = cached
+            result = Decimal(balance) * Decimal(exchange_rate)
+            print_val = "{0:f}".format(result.normalize())
 
-        result = Decimal(balance) * Decimal(exchange_rate)
-        print_val = "{0:f}".format(result.normalize())
-
-        wf.add_item(
-            title=print_val,
-            subtitle="Fetch time: %s" % (last_fetch_time),
-            copytext=print_val,
-        )
+            wf.add_item(
+                title=print_val,
+                subtitle="Fetch time: %s" % (last_fetch_time),
+                copytext=print_val,
+            )
     except WaitingForInputError as we:
         wf.add_item(title="Waiting for more input", subtitle=str(we), icon=ICON_CLOCK)
     except NetworkError as ne:
@@ -74,43 +76,6 @@ def main(wf):
         wf.add_item(title="Error", subtitle=str(pe), icon=ICON_ERROR)
 
     wf.send_feedback()
-
-
-def get_exchange_rate(payload):
-    r = post(
-        "https://adsynth-ofx-quotewidget-prod.herokuapp.com/api/1",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        timeout=30,  # seconds
-    )
-    if r.status_code < 400:
-        data = r.json()
-
-        try:
-            data["error"]
-            raise Exception(data["error"])
-        except KeyError:
-            pass
-
-        exchange_rate = str(data["data"]["CurrentInterbankRate"])
-        fetch_time = datetime.datetime.fromtimestamp(
-            data["data"]["fetchTime"] // 1000
-        ).strftime("%Y-%m-%d %H:%M:%S")
-        return exchange_rate, fetch_time
-    else:
-        raise NetworkError(r.status_code)
-
-
-class ParseError(Exception):
-    pass
-
-
-class WaitingForInputError(Exception):
-    pass
-
-
-class NetworkError(Exception):
-    pass
 
 
 class RealStringIO:
@@ -128,92 +93,6 @@ class RealStringIO:
 
     def readable(self):
         return self._cursor < self._len
-
-
-def parse_input(stream):
-    if not stream.readable():
-        raise WaitingForInputError("no balance specified")
-    balance = parse_balance(stream)
-
-    if not stream.readable():
-        raise WaitingForInputError("no source currency code specified")
-    _from = parse_from(stream)
-
-    if not stream.readable():
-        raise WaitingForInputError("expecting to/To/in/In")
-    parse_prep(stream)
-
-    if not stream.readable():
-        raise WaitingForInputError("no target currency code specified")
-    to = parse_to(stream)
-    return (balance, _from.upper(), to.upper())
-
-
-def parse_balance(stream):
-    c = " "
-    while stream.readable() and c == " ":
-        c = stream.read()
-
-    v = c
-    while stream.readable():
-        c = stream.read()
-        if c == " ":
-            break
-        v += c
-    if NUMBER.match(v) is None:
-        raise ParseError("expect number, but got: ", v)
-    if Decimal(v).is_signed():
-        raise ParseError("balance should be positive number")
-    return v
-
-
-def parse_from(stream):
-    c = " "
-    while stream.readable() and c == " ":
-        c = stream.read()
-
-    v = c
-    while stream.readable():
-        c = stream.read()
-        if c == " ":
-            break
-        v += c
-
-    if not v.isalpha() or len(v) != 3:
-        raise ParseError("expect currency code, but got: " + v)
-    return v
-
-
-def parse_prep(stream):
-    c = " "
-    while stream.readable() and c == " ":
-        c = stream.read()
-
-    v = c
-    while stream.readable():
-        c = stream.read()
-        if c == " ":
-            break
-        v += c
-    if v.upper() != "TO" and v.upper() != "IN":
-        raise ParseError("expect to/in")
-
-
-def parse_to(stream):
-    c = " "
-    while stream.readable() and c == " ":
-        c = stream.read()
-
-    v = c
-    while stream.readable():
-        c = stream.read()
-        if c == " ":
-            break
-        v += c
-
-    if not v.isalpha() or len(v) != 3:
-        raise ParseError("expect currency code, but got: " + v)
-    return v
 
 
 if __name__ == "__main__":

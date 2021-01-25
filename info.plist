@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>bundleid</key>
-	<string>com.alfredapp.pot.currency</string>
+	<string>com.alfredapp.pot-code.currency</string>
 	<key>category</key>
 	<string>Tools</string>
 	<key>connections</key>
@@ -69,7 +69,7 @@
 		</dict>
 	</array>
 	<key>readme</key>
-	<string></string>
+	<string>Just as the description says</string>
 	<key>uidata</key>
 	<dict>
 		<key>CB9FD03A-2D4E-4C95-8916-6E2BADEC3BC4</key>
@@ -80,7 +80,11 @@
 			<integer>120</integer>
 		</dict>
 	</dict>
+	<key>variablesdontexport</key>
+	<array/>
+	<key>version</key>
+	<string>1.1.1</string>
 	<key>webaddress</key>
-	<string></string>
+	<string>https://github.com/pot-code/alfred_currency</string>
 </dict>
 </plist>

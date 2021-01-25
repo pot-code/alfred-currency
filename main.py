@@ -38,13 +38,19 @@ def main(wf):
     stream = RealStringIO(arg)
     try:
         balance, _from, to = parse_input(stream)
-        cache_key = _from + "_" + to
-        exchange_rate, last_fetch_time = (0, "")
-        cached = wf.cached_data(
-            cache_key, max_age=28800  # seconds, 8 hours to be expired
-        )
 
-        if cached is None:
+        if _from == to:
+            wf.add_item(
+                title=balance,
+                subtitle="The exchange rate is 1 :)",
+                copytext=balance,
+            )
+            wf.send_feedback()
+            return
+
+        cache_key = _from + "_" + to
+
+        if not wf.cached_data_fresh(cache_key, 28800):  # seconds, 8 hours to be expired
             run_in_background(
                 "fetch",
                 ["/usr/bin/python", wf.workflowfile("fetch.py"), _from, to],
@@ -54,10 +60,9 @@ def main(wf):
             wf.rerun = 0.5
             wf.add_item(title="Fetching...", icon=ICON_SYNC)
         else:
-            cached = wf.cached_data(
+            exchange_rate, last_fetch_time = wf.cached_data(
                 cache_key, max_age=0
             )  # now can safely pull the data from cache
-            exchange_rate, last_fetch_time = cached
             result = Decimal(balance) * Decimal(exchange_rate)
             print_val = "{0:f}".format(result.normalize())
 

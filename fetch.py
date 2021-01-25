@@ -44,5 +44,11 @@ if __name__ == "__main__":
             "data": {"base": _from, "term": to, "period": "day"},
         }
     )
-    exchange_rate, last_fetch_time = get_exchange_rate(payload)
-    wf.cache_data(cache_key, (exchange_rate, last_fetch_time))
+
+    try:
+        exchange_rate, last_fetch_time = get_exchange_rate(payload)
+        wf.cache_data(cache_key, (exchange_rate, last_fetch_time))
+    except NetworkError as ne:
+        wf.cache_data("network_error", ne)
+    except Exception as e:
+        wf.cache_data("error", str(e))

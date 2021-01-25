@@ -48,9 +48,20 @@ def main(wf):
             wf.send_feedback()
             return
 
-        cache_key = _from + "_" + to
+        error = wf.cached_data("error", max_age=0)
+        if error is not None:
+            wf.clear_cache(lambda name: name.startswith("error"))
+            raise Exception(error)
 
-        if not wf.cached_data_fresh(cache_key, 28800):  # seconds, 8 hours to be expired
+        network_error = wf.cached_data("network_error", max_age=0)
+        if network_error is not None:
+            wf.clear_cache(lambda name: name.startswith("network_error"))
+            raise NetworkError(error)
+
+        cache_key = _from + "_" + to
+        if not is_running("fetch") and not wf.cached_data_fresh(
+            cache_key, 28800
+        ):  # seconds, 8 hours to be expired
             run_in_background(
                 "fetch",
                 ["/usr/bin/python", wf.workflowfile("fetch.py"), _from, to],

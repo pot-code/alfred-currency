@@ -10,7 +10,7 @@ class NetworkError(Exception):
 
 def get_exchange_rate(payload):
     r = post(
-        "https://adsynth-ofx-quotewidget-prod.herokuapp.com/api/1",
+        "https://api.rates-history-service.prd.aws.ofx.com/rate-history/api/1",
         data=payload,
         headers={"Content-Type": "application/json"},
         timeout=30,  # seconds
